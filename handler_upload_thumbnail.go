@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"os"
 	"mime"
+	"crypto/rand"
+	"encoding/base64"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
-	"github.com/google/uuid"
+	"github.com/google/uuid" 
 )
 
 func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +52,11 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	assetPath := getAssetPath(videoID, mediaType)
+	thumbnailFilenameSlice := make([]byte,32)
+	rand.Read(thumbnailFilenameSlice)
+	thubmnailFilenameString := base64.URLEncoding.WithPadding(-1).EncodeToString(thumbnailFilenameSlice)
+
+	assetPath := getAssetPath(thubmnailFilenameString, mediaType)
 	assetDiskPath := cfg.getAssetDiskPath(assetPath)
 
 	dst, err := os.Create(assetDiskPath)
