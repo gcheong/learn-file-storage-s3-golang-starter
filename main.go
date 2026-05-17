@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"s3"
+	"config"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
 	//"github.com/google/uuid"
@@ -22,6 +24,7 @@ type apiConfig struct {
 	s3Region         string
 	s3CfDistribution string
 	port             string
+	s3Client		 *s3.Client
 }
 
 type thumbnail struct {
