@@ -5,9 +5,15 @@ import (
 	"mime"
 	"os"
 	"io"
+	"log"
+	"crypto/rand"
+	"fmt"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid" 
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request) {
@@ -73,13 +79,23 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 
 	_, err = io.Copy(tempFile, file)
 
+	log.Printf("Copying file to",tempFile.Name())
 	
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error copying file", err)
 		return
 	}
+	
+	videoFileKeySlice := make([]byte, 16)
+	rand.Read(videoFileKeySlice)
+	videoFilename := fmt.Sprintf("%s.mp4",hex.EncodeToString(videoFileKeySlice))
 
+	_, err := cfg.s3Client.PutObject(ontext.Background(), &s3.PutObjectInput{
+    	Bucket:      aws.String("my-bucket-name"),
+    	Key:         aws.String("notes/greeting.txt"),
+    	Body:        body,
+    	ContentType: aws.String("text/plain"),
+	})
 
-
-
+	respondWithJSON(w, http.StatusOK, video)
 }
