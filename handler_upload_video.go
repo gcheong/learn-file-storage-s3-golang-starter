@@ -8,6 +8,8 @@ import (
 	"log"
 	"crypto/rand"
 	"fmt"
+	"encoding/hex"
+	"context"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid" 
@@ -78,24 +80,46 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	defer tempFile.Close()
 
 	_, err = io.Copy(tempFile, file)
-
-	log.Printf("Copying file to",tempFile.Name())
 	
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error copying file", err)
 		return
 	}
-	
+
+	_ , err = tempFile.Seek(0, io.SeekStart)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error resetting file position", err)
+		return
+	}
+
 	videoFileKeySlice := make([]byte, 16)
 	rand.Read(videoFileKeySlice)
-	videoFilename := fmt.Sprintf("%s.mp4",hex.EncodeToString(videoFileKeySlice))
+	videoKeyString := hex.EncodeToString(videoFileKeySlice)
+	videoFilename := fmt.Sprintf("%s.mp4",videoKeyString)
 
-	_, err := cfg.s3Client.PutObject(ontext.Background(), &s3.PutObjectInput{
-    	Bucket:      aws.String("my-bucket-name"),
-    	Key:         aws.String("notes/greeting.txt"),
-    	Body:        body,
-    	ContentType: aws.String("text/plain"),
+	log.Printf("Attempting to upload video to s3 Bucket:%s", cfg.s3Bucket)
+	_, err = cfg.s3Client.PutObject(context.Background(), &s3.PutObjectInput{
+    	Bucket:      aws.String(cfg.s3Bucket),
+    	Key:         aws.String(videoFilename),
+    	Body:        tempFile,
+    	ContentType: aws.String("video/mp4"),
 	})
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error uploading file", err)
+		return
+	}
+
+
+	url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",cfg.s3Bucket,cfg.s3Region,videoFilename)
+	log.Printf("Video url %s", url)
+	video.VideoURL = &url
+	err = cfg.db.UpdateVideo(video)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
+		return
+	}
 
 	respondWithJSON(w, http.StatusOK, video)
 }
