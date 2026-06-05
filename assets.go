@@ -28,6 +28,9 @@ func (cfg apiConfig) getAssetURL(assetPath string) string {
 	return fmt.Sprintf("http://localhost:%s/assets/%s", cfg.port, assetPath)
 }
 
+func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
+	
+}
 func mediaTypeToExt(mediaType string) string {
 	parts := strings.Split(mediaType, "/")
 	if len(parts) != 2 {
@@ -35,3 +38,4 @@ func mediaTypeToExt(mediaType string) string {
 	}
 	return "." + parts[1]
 }
+
