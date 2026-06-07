@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"bytes"
 
 )
 
@@ -29,7 +31,10 @@ func (cfg apiConfig) getAssetURL(assetPath string) string {
 }
 
 func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
-	
+	cmd := exec.Command("ffprobe","-v", "error", "-print_format", "json", "-show_streams",filePath)
+	var b []byte
+	cmd.Stdout = bytes.NewBuffer(b)
+	return "",nil
 }
 func mediaTypeToExt(mediaType string) string {
 	parts := strings.Split(mediaType, "/")
