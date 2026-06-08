@@ -34,6 +34,11 @@ func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
 	cmd := exec.Command("ffprobe","-v", "error", "-print_format", "json", "-show_streams",filePath)
 	var b []byte
 	cmd.Stdout = bytes.NewBuffer(b)
+	err := cmd.Run()
+	if err != nil {
+		return "",err
+	}
+	
 	return "",nil
 }
 func mediaTypeToExt(mediaType string) string {
