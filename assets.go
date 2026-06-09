@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"bytes"
+	 "encoding/json"
 
 )
 
@@ -31,6 +32,13 @@ func (cfg apiConfig) getAssetURL(assetPath string) string {
 }
 
 func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
+	type FFProbeResult struct {
+		Streams []struct {
+			Width              int    `json:"width,omitempty"`
+			Height             int    `json:"height,omitempty"`
+		} `json:"streams"`
+	}
+
 	cmd := exec.Command("ffprobe","-v", "error", "-print_format", "json", "-show_streams",filePath)
 	var b []byte
 	cmd.Stdout = bytes.NewBuffer(b)
@@ -38,9 +46,15 @@ func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
 	if err != nil {
 		return "",err
 	}
-	
+
+	var result FFProbeResult
+	err = json.Unmarshal(b, &result)
+	if err != nil {
+    	return "", err
+	}
 	return "",nil
 }
+
 func mediaTypeToExt(mediaType string) string {
 	parts := strings.Split(mediaType, "/")
 	if len(parts) != 2 {
