@@ -52,7 +52,17 @@ func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
 	if err != nil {
     	return "", err
 	}
-	return "",nil
+	width := result.Streams[0].Width
+	height := result.Streams[0].Height
+
+	ratio := width / height
+
+	if ratio == 1 {
+		return "16:9", nil
+	} else if ratio == 0 {
+		return "9:16", nil
+	}
+	return "other",nil
 }
 
 func mediaTypeToExt(mediaType string) string {
