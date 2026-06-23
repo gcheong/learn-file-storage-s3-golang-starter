@@ -93,6 +93,27 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	processedFilePath, err := cfg.processVideoForFastStart(tempFile.Name())
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not process video for fast start", err)
+		return
+	}
+
+	processedFile, err := os.Open(processedFilePath)
+
+	if err != nil {
+		{
+		respondWithError(w, http.StatusInternalServerError, "Could open processed video", err)
+		return
+	}
+	}
+
+	defer os.Remove(processedFile.Name())
+	defer processedFile.Close()
+
+
+
 	videoFileKeySlice := make([]byte, 16)
 	rand.Read(videoFileKeySlice)
 	videoKeyString := hex.EncodeToString(videoFileKeySlice)
@@ -102,7 +123,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	_, err = cfg.s3Client.PutObject(context.Background(), &s3.PutObjectInput{
     	Bucket:      aws.String(cfg.s3Bucket),
     	Key:         aws.String(videoFilename),
-    	Body:        tempFile,
+    	Body:        processedFile,
     	ContentType: aws.String("video/mp4"),
 	})
 

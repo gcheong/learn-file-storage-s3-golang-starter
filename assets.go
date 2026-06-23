@@ -40,15 +40,18 @@ func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
 	}
 
 	cmd := exec.Command("ffprobe","-v", "error", "-print_format", "json", "-show_streams",filePath)
-	var b []byte
-	cmd.Stdout = bytes.NewBuffer(b)
+	var b bytes.Buffer
+
+	cmd.Stdout = &b
 	err := cmd.Run()
 	if err != nil {
 		return "",err
 	}
 
+	fmt.Println("stdout:", b.String())
+
 	var result FFProbeResult
-	err = json.Unmarshal(b, &result)
+	err = json.Unmarshal(b.Bytes(), &result)
 	if err != nil {
     	return "", err
 	}
@@ -64,6 +67,20 @@ func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
 	}
 	return "other",nil
 }
+
+ func (cfg apiConfig) processVideoForFastStart(filePath string) (string, error) {
+
+	outputFilePath := fmt.Sprintf("%s.processing", filePath)
+	cmd := exec.Command("ffmpeg", "-i" ,filePath, "-c", "copy", "-movflags", "faststart", "-f", "mp4", outputFilePath)
+	err := cmd.Run()
+
+	if err != nil {
+		return "",err
+	}
+
+	return outputFilePath, nil
+ }
+
 
 func mediaTypeToExt(mediaType string) string {
 	parts := strings.Split(mediaType, "/")
