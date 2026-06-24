@@ -31,7 +31,7 @@ func (cfg apiConfig) getAssetURL(assetPath string) string {
 	return fmt.Sprintf("http://localhost:%s/assets/%s", cfg.port, assetPath)
 }
 
-func (cfg apiConfig) getVidoAspectRatio(filePath string) (string, error){
+func (cfg apiConfig) getVideoAspectRatio(filePath string) (string, error){
 	type FFProbeResult struct {
 		Streams []struct {
 			Width              int    `json:"width,omitempty"`

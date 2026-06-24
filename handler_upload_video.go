@@ -93,6 +93,23 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	videoaAspectRatio, err := cfg.getVideoAspectRatio(tempFile.Name())
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to get video aspect ratio", err)
+		return
+	}
+
+	videoPrefix := ""
+
+	if videoaAspectRatio == "16:9" {
+		videoPrefix = "landscape"
+	} else if videoaAspectRatio == "9:16" {
+		videoPrefix = "portrait"
+	} else {
+		videoPrefix = "other"
+	}
+	
 	processedFilePath, err := cfg.processVideoForFastStart(tempFile.Name())
 
 	if err != nil {
@@ -103,12 +120,10 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	processedFile, err := os.Open(processedFilePath)
 
 	if err != nil {
-		{
-		respondWithError(w, http.StatusInternalServerError, "Could open processed video", err)
+		respondWithError(w, http.StatusInternalServerError, "Could not open processed video", err)
 		return
 	}
-	}
-
+	
 	defer os.Remove(processedFile.Name())
 	defer processedFile.Close()
 
@@ -117,7 +132,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	videoFileKeySlice := make([]byte, 16)
 	rand.Read(videoFileKeySlice)
 	videoKeyString := hex.EncodeToString(videoFileKeySlice)
-	videoFilename := fmt.Sprintf("%s.mp4",videoKeyString)
+	videoFilename := fmt.Sprintf("%s/%s.mp4",videoPrefix,videoKeyString)
 
 	log.Printf("Attempting to upload video to s3 Bucket:%s", cfg.s3Bucket)
 	_, err = cfg.s3Client.PutObject(context.Background(), &s3.PutObjectInput{
