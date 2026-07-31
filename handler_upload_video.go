@@ -1,18 +1,19 @@
 package main
 
 import (
-	"net/http"
-	"mime"
-	"os"
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"log"
-	"crypto/rand"
-	"fmt"
-	"encoding/hex"
-	"context"
+	"mime"
+	"net/http"
+	"os"
+	"time"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
-	"github.com/google/uuid" 
+	"github.com/google/uuid"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -20,7 +21,7 @@ import (
 
 func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request) {
 
-	r.Body = http.MaxBytesReader(w, r.Body, 1 << 30 )
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<30)
 
 	videoIDString := r.PathValue("videoID")
 	videoID, err := uuid.Parse(videoIDString)
@@ -51,14 +52,12 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-
 	file, header, err := r.FormFile("video")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to parse form file", err)
 		return
 	}
 	defer file.Close()
-
 
 	mediaType, _, err := mime.ParseMediaType(header.Header.Get("Content-Type"))
 	if err != nil {
@@ -70,7 +69,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tempFile, err := os.CreateTemp("",  "tubely-upload.mp4")
+	tempFile, err := os.CreateTemp("", "tubely-upload.mp4")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could't create temporary file", err)
 		return
@@ -80,13 +79,13 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	defer tempFile.Close()
 
 	_, err = io.Copy(tempFile, file)
-	
+
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error copying file", err)
 		return
 	}
 
-	_ , err = tempFile.Seek(0, io.SeekStart)
+	_, err = tempFile.Seek(0, io.SeekStart)
 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error resetting file position", err)
@@ -109,7 +108,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	} else {
 		videoPrefix = "other"
 	}
-	
+
 	processedFilePath, err := cfg.processVideoForFastStart(tempFile.Name())
 
 	if err != nil {
@@ -123,23 +122,21 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusInternalServerError, "Could not open processed video", err)
 		return
 	}
-	
+
 	defer os.Remove(processedFile.Name())
 	defer processedFile.Close()
-
-
 
 	videoFileKeySlice := make([]byte, 16)
 	rand.Read(videoFileKeySlice)
 	videoKeyString := hex.EncodeToString(videoFileKeySlice)
-	videoFilename := fmt.Sprintf("%s/%s.mp4",videoPrefix,videoKeyString)
+	videoFilename := fmt.Sprintf("%s/%s.mp4", videoPrefix, videoKeyString)
 
 	log.Printf("Attempting to upload video to s3 Bucket:%s", cfg.s3Bucket)
 	_, err = cfg.s3Client.PutObject(context.Background(), &s3.PutObjectInput{
-    	Bucket:      aws.String(cfg.s3Bucket),
-    	Key:         aws.String(videoFilename),
-    	Body:        processedFile,
-    	ContentType: aws.String("video/mp4"),
+		Bucket:      aws.String(cfg.s3Bucket),
+		Key:         aws.String(videoFilename),
+		Body:        processedFile,
+		ContentType: aws.String("video/mp4"),
 	})
 
 	if err != nil {
@@ -147,8 +144,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-
-	url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",cfg.s3Bucket,cfg.s3Region,videoFilename)
+	url := fmt.Sprintf("%s,%s", cfg.s3Bucket, videoFilename)
 	log.Printf("Video url %s", url)
 	video.VideoURL = &url
 	err = cfg.db.UpdateVideo(video)
@@ -158,4 +154,16 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	}
 
 	respondWithJSON(w, http.StatusOK, video)
+}
+
+func (cfg *apiConfig) generatePresignedURl(s3Client *s3.Client, bucket string, key string, expireTime time.Duration) (string, error) {
+	s3PSC := s3.NewPresignClient(s3Client)
+
+	request, err := s3PSC.PresignGetObject(context.Background(), &s3.GetObjectInput{Bucket: &bucket, Key: &key}, s3.WithPresignExpires(expireTime))
+
+	if err != nil {
+		return "", err
+	}
+
+	return request.URL, nil
 }
